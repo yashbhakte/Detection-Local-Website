@@ -1,3 +1,5 @@
+from fileinput import filename
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -193,11 +195,8 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 # --- Prediction & History Endpoints ---
 
 @app.post("/predict")
-async def predict(
-    file: UploadFile = File(...), 
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+async def predict(file: UploadFile = File(...)):
+
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
     
@@ -208,8 +207,10 @@ async def predict(
         
         # Save image to uploads folder
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{current_user.id}_{timestamp}_{file.filename}"
+        safe_name = os.path.basename(file.filename)
+        filename = f"{timestamp}_{safe_name}"
         file_path = os.path.join(UPLOADS_DIR, filename)
+
         
         # We need to seek back to start if we use the file object, 
         # but since we already have 'contents', we'll just write it
@@ -242,25 +243,7 @@ async def predict(
         
         status_val = "ok" if defect_key == "defect free" else "defect"
         severity = "None" if status_val == "ok" else "High"
-        
-        # Save to database
-        scan_record = ScanHistory(
-            user_id=current_user.id,
-            image_path=f"uploads/{filename}",
-            defect_key=defect_key,
-            defect_label=predicted_class_raw,
-            confidence=round(top1_conf * 100, 2),
-            severity=severity,
-            reason_1=info.get("reason_1"),
-            reason_2=info.get("reason_2"),
-            reason_3=info.get("reason_3"),
-            machine=info.get("machine"),
-            suggestion=info.get("suggestion"),
-            status=status_val
-        )
-        db.add(scan_record)
-        db.commit()
-        db.refresh(scan_record)
+    
         
         return {
             "status": status_val,

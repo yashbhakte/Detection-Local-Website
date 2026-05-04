@@ -257,84 +257,22 @@ async function handleLogin(e) {
   e.preventDefault();
 
   const email = DOM.loginId.value.trim();
-  const password = DOM.loginPassword.value.trim();
 
-  if (!email || !password) {
-    showToast('error', 'Missing Details', 'Please enter email and password.');
+  if (!email) {
+    showToast('error', 'Missing Email', 'Please enter any email to continue.');
     return;
   }
 
-  const btn = DOM.loginForm.querySelector('button[type="submit"]');
-  const originalLabel = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = `<span style="display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin-ring 0.8s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Authenticating...</span>`;
+  appState.user.name = email.split('@')[0] || 'Guest User';
+  appState.user.email = email;
+  DOM.profileName.textContent = appState.user.name;
 
-  try {
-    const formData = new URLSearchParams();
-    formData.append('username', email);
-    formData.append('password', password);
+  DOM.loginLayout.classList.remove('active');
+  DOM.loginLayout.classList.add('hidden');
+  $('app-layout').classList.remove('hidden');
+  DOM.headerRight.classList.remove('hidden');
 
-    const loginResponse = await fetch(`${API_BASE_URL}/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: formData.toString(),
-    });
-
-    if (!loginResponse.ok) {
-      const errorData = await loginResponse.json().catch(() => ({}));
-      throw new Error(errorData.detail || 'Login failed');
-    }
-
-    const loginData = await loginResponse.json();
-    console.log("Login response:", loginData);  // debug
-
-    if (loginData.access_token) {
-      localStorage.setItem("token", loginData.access_token);
-      console.log("Token saved:", loginData.access_token);
-    } else {
-      console.error("No token received");
-    }
-
-    const token = loginData.access_token;
-
-    if (!token) {
-      throw new Error('No access token received from server');
-    }
-
-    const profileResponse = await fetch(`${API_BASE_URL}/users/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    if (!profileResponse.ok) {
-      throw new Error('Could not load user profile');
-    }
-
-    const userData = await profileResponse.json();
-
-    appState.user.name = userData.full_name || 'User';
-    appState.user.email = userData.email || email;
-
-    DOM.profileName.textContent = appState.user.name;
-
-    DOM.loginLayout.classList.remove('active');
-    DOM.loginLayout.classList.add('hidden');
-    $('app-layout').classList.remove('hidden');
-    DOM.headerRight.classList.remove('hidden');
-
-    showToast('success', 'Access Granted', `Welcome back, ${appState.user.name}.`);
-
-  } catch (err) {
-    console.error('Login error:', err);
-    showToast('error', 'Login Failed', err.message || 'Incorrect email or password.', 6000);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalLabel;
-  }
+  showToast('success', 'Access Granted', `Welcome, ${appState.user.name}.`);
 }
 
 async function handleSignup(e) {
@@ -701,15 +639,8 @@ async function processImage(imageDataURL, source) {
     const formData = new FormData();
     formData.append('file', blob, 'capture.jpg');
 
-    const token = getAuthToken();
-    const headers = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const response = await fetch(`${API_BASE_URL}/predict`, {
       method: 'POST',
-      headers: headers,
       body: formData
     });
 

@@ -1,0 +1,12 @@
+Make sure you are inside your project folder:
+= pwd
+
+= git status
+
+= git add .
+
+= git commit -m "Fixed CORS, auth token, predict API and frontend flow"
+
+= git branch -M main
+
+= git push -u origin main
