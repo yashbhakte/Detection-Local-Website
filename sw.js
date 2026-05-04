@@ -3,7 +3,7 @@
    sw.js — Offline-first caching strategy
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'fabricguard-v6';
+const CACHE_NAME = 'fabricguard-v7';
 const STATIC_ASSETS = [
   './',
   './index.html',
