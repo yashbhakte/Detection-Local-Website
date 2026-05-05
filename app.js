@@ -63,7 +63,7 @@ const DEMO_IMAGES = [
 ];
 
 /* ── API CONFIGURATION ───────────────────────────────────────── */
-const API_BASE_URL = "https://fabric-dd.onrender.com";
+const API_BASE_URL = "https://fabric-dd-bb.onrender.com";
 
 function setAuthToken(token) {
   localStorage.setItem('token', token);

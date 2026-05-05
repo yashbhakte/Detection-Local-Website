@@ -239,7 +239,7 @@ async def predict(file: UploadFile = File(...)):
                 "reason_3": "N/A",
                 "machine": "N/A",
                 "suggestion": "Fabric is in good condition",
-                "image_url": f"https://fabric-dd.onrender.com/uploads/{filename}"
+                "image_url": f"https://fabric-dd-bb.onrender.com/uploads/{filename}"
             }
         
         # Process detections with bounding boxes
@@ -299,7 +299,7 @@ async def predict(file: UploadFile = File(...)):
             "reason_3": primary.get("reason_3"),
             "machine": primary.get("machine"),
             "suggestion": primary.get("suggestion"),
-            "image_url": f"https://fabric-dd.onrender.com/uploads/{filename}"
+            "image_url": f"https://fabric-dd-bb.onrender.com/uploads/{filename}"
         }
         
     except Exception as e:
