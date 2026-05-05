@@ -596,6 +596,28 @@ function buildDemoResult() {
     machine: 'Knitting Machine / Circular Weft Knitter',
     suggestion: 'Inspect needle bed immediately, replace damaged hooks, and verify yarn feeder tension settings.',
     confidence: '94.2',
+    detection_count: 1,
+    detections: [
+      {
+        detection_id: 1,
+        defect_type: 'hole',
+        defect_key: 'hole',
+        confidence: 94.2,
+        bbox: {
+          x1: 80,
+          y1: 60,
+          x2: 180,
+          y2: 160,
+          width: 100,
+          height: 100
+        },
+        reason_1: 'Broken needle hook or sharp metal fragment puncturing fabric.',
+        reason_2: 'Weak yarn snapping under excess tensile stress during knitting.',
+        reason_3: 'Improper fabric take-up tension pulling too tight.',
+        machine: 'Knitting Machine / Circular Weft Knitter',
+        suggestion: 'Inspect needle bed immediately, replace damaged hooks, and verify yarn feeder tension settings.'
+      }
+    ],
     source: 'demo'
   };
 }
@@ -672,6 +694,8 @@ async function processImage(imageDataURL, source) {
       machine: apiResult.machine,
       suggestion: apiResult.suggestion,
       confidence: apiResult.confidence,
+      detection_count: apiResult.detection_count,
+      detections: apiResult.detections || [],
       source: source
     };
 
@@ -710,6 +734,55 @@ function sleep(ms) {
 /* ═══════════════════════════════════════════════════════════════
    6. DISPLAY RESULTS
    ═══════════════════════════════════════════════════════════════ */
+
+function drawBoundingBoxes(imageElement, detections) {
+  // Create canvas overlay for bounding boxes
+  let canvas = imageElement.nextElementSibling;
+  if (!canvas || canvas.tagName !== 'CANVAS') {
+    canvas = document.createElement('canvas');
+    canvas.style.position = 'absolute';
+    canvas.style.top = imageElement.offsetTop + 'px';
+    canvas.style.left = imageElement.offsetLeft + 'px';
+    canvas.style.cursor = 'pointer';
+    imageElement.parentElement.style.position = 'relative';
+    imageElement.parentElement.insertBefore(canvas, imageElement.nextSibling);
+  }
+
+  canvas.width = imageElement.width;
+  canvas.height = imageElement.height;
+  
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+
+  detections.forEach((detection, idx) => {
+    const bbox = detection.bbox;
+    const color = colors[idx % colors.length];
+    
+    // Draw rectangle
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(bbox.x1, bbox.y1, bbox.width, bbox.height);
+
+    // Draw label background
+    const label = `${detection.defect_type} ${detection.confidence}%`;
+    ctx.font = 'bold 14px Arial';
+    const textMetrics = ctx.measureText(label);
+    const textWidth = textMetrics.width + 10;
+    const textHeight = 24;
+
+    ctx.fillStyle = color;
+    ctx.fillRect(bbox.x1, bbox.y1 - textHeight, textWidth, textHeight);
+
+    // Draw label text
+    ctx.fillStyle = '#000000';
+    ctx.fillText(label, bbox.x1 + 5, bbox.y1 - 8);
+  });
+
+  return canvas;
+}
+
 function showResults(result, imageURL, confidence) {
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -744,10 +817,21 @@ function showResults(result, imageURL, confidence) {
   if (DOM.machineResponsible) DOM.machineResponsible.textContent = result.machine;
   if (DOM.correctiveSuggestion) DOM.correctiveSuggestion.textContent = result.suggestion;
 
+  // Draw bounding boxes if detection data is available
+  if (result.detections && result.detections.length > 0) {
+    DOM.resultImage.onload = () => {
+      drawBoundingBoxes(DOM.resultImage, result.detections);
+    };
+    if (DOM.resultImage.complete) {
+      drawBoundingBoxes(DOM.resultImage, result.detections);
+    }
+  }
+
   addLogEntry(result, confidence, timeStr);
 
   if (result.status === 'defect') {
-    showToast('error', 'Defect Detected', `${result.label} — Confidence: ${confidence}%`, 6000);
+    const detectionInfo = result.detection_count ? ` (${result.detection_count} detection${result.detection_count > 1 ? 's' : ''})` : '';
+    showToast('error', 'Defect Detected', `${result.label}${detectionInfo} — Confidence: ${confidence}%`, 6000);
   } else {
     showToast('success', 'Inspection Passed', `Fabric sample cleared. Confidence: ${confidence}%`, 5000);
   }
@@ -766,6 +850,12 @@ function initClearButton() {
     DOM.imagePreview.src = '';
     DOM.imagePreview.classList.add('hidden');
     DOM.cameraIdle.classList.remove('hidden');
+
+    // Remove bounding box canvas
+    const canvas = DOM.resultImage?.nextElementSibling;
+    if (canvas && canvas.tagName === 'CANVAS') {
+      canvas.remove();
+    }
 
     DOM.viewResults.classList.remove('active');
     DOM.viewResults.classList.add('hidden');

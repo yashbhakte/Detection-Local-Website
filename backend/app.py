@@ -54,7 +54,7 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MODEL_PATH = os.path.join(BASE_DIR,"model","best.pt")
+MODEL_PATH = os.path.join(BASE_DIR,"model","det_best.pt")
 EXCEL_PATH = os.path.join(BASE_DIR,"data","Fabric Defect Reason,Machine,Suggestion Dataset.xlsx")
 
 # Global variables
@@ -221,41 +221,84 @@ async def predict(file: UploadFile = File(...)):
         image.thumbnail((416, 416))
         
         # Run inference
-        results = model.predict(image, verbose=False)
+        results = model.predict(image, verbose=False, conf=0.25)
+        result = results[0]
         
-        # Get top prediction
-        probs = results[0].probs
-        top1_idx = int(probs.top1)
-        top1_conf = float(probs.top1conf)
-        predicted_class_raw = results[0].names[top1_idx]
+        # Check if any detections found
+        if len(result.boxes) == 0:
+            # No defect detected
+            return {
+                "status": "ok",
+                "defect_key": "defect free",
+                "defect_label": "No Defect Detected",
+                "confidence": 100.0,
+                "severity": "None",
+                "detections": [],
+                "reason_1": "No defects found",
+                "reason_2": "N/A",
+                "reason_3": "N/A",
+                "machine": "N/A",
+                "suggestion": "Fabric is in good condition",
+                "image_url": f"https://fabric-dd.onrender.com/uploads/{filename}"
+            }
         
-        # Normalize for mapping
-        defect_key = normalize_defect_name(predicted_class_raw)
+        # Process detections with bounding boxes
+        detections = []
+        for i, box in enumerate(result.boxes, start=1):
+            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+            conf = float(box.conf[0])
+            cls_id = int(box.cls[0])
+            
+            defect_name = result.names[cls_id]
+            normalized_defect = normalize_defect_name(defect_name)
+            
+            info = mapping_data.get(normalized_defect, {
+                "reason_1": "No specific data available",
+                "reason_2": "N/A",
+                "reason_3": "N/A",
+                "suggestion": "Manual inspection recommended",
+                "machine": "Unknown"
+            })
+            
+            detections.append({
+                "detection_id": i,
+                "defect_type": defect_name,
+                "defect_key": normalized_defect,
+                "confidence": round(conf * 100, 2),
+                "bbox": {
+                    "x1": x1,
+                    "y1": y1,
+                    "x2": x2,
+                    "y2": y2,
+                    "width": x2 - x1,
+                    "height": y2 - y1
+                },
+                "reason_1": info.get("reason_1"),
+                "reason_2": info.get("reason_2"),
+                "reason_3": info.get("reason_3"),
+                "machine": info.get("machine"),
+                "suggestion": info.get("suggestion")
+            })
         
-        # Fetch mapping
-        info = mapping_data.get(defect_key, {
-            "reason_1": "No specific data available",
-            "reason_2": "N/A",
-            "reason_3": "N/A",
-            "suggestion": "Manual inspection recommended",
-            "machine": "Unknown"
-        })
-        
-        status_val = "ok" if defect_key == "defect free" else "defect"
-        severity = "None" if status_val == "ok" else "High"
+        # Use first detection as primary result
+        primary = detections[0]
+        status_val = "defect"
+        severity = "High" if primary["confidence"] > 75 else "Medium" if primary["confidence"] > 50 else "Low"
     
         
         return {
             "status": status_val,
-            "defect_key": defect_key,
-            "defect_label": predicted_class_raw,
-            "confidence": round(top1_conf * 100, 2),
+            "defect_key": primary["defect_key"],
+            "defect_label": primary["defect_type"],
+            "confidence": primary["confidence"],
             "severity": severity,
-            "reason_1": info.get("reason_1"),
-            "reason_2": info.get("reason_2"),
-            "reason_3": info.get("reason_3"),
-            "machine": info.get("machine"),
-            "suggestion": info.get("suggestion"),
+            "detections": detections,
+            "detection_count": len(detections),
+            "reason_1": primary.get("reason_1"),
+            "reason_2": primary.get("reason_2"),
+            "reason_3": primary.get("reason_3"),
+            "machine": primary.get("machine"),
+            "suggestion": primary.get("suggestion"),
             "image_url": f"https://fabric-dd.onrender.com/uploads/{filename}"
         }
         
