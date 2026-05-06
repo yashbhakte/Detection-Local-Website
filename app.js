@@ -63,7 +63,7 @@ const DEMO_IMAGES = [
 ];
 
 /* ── API CONFIGURATION ───────────────────────────────────────── */
-const API_BASE_URL = "https://fabric-dd-bb.onrender.com";
+const API_BASE_URL = 'https://detection-local-website.onrender.com';
 
 function setAuthToken(token) {
   localStorage.setItem('token', token);
@@ -257,9 +257,10 @@ async function handleLogin(e) {
   e.preventDefault();
 
   const email = DOM.loginId.value.trim();
+  const password = DOM.loginPassword.value.trim();
 
-  if (!email) {
-    showToast('error', 'Missing Email', 'Please enter any email to continue.');
+  if (!email || !password) {
+    showToast('error', 'Missing Credentials', 'Please enter any email and password to continue.');
     return;
   }
 
@@ -583,6 +584,36 @@ function dataURLtoBlob(dataurl) {
   return new Blob([u8arr], { type: mime });
 }
 
+function loadImageAsBlob(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Canvas to Blob conversion failed'));
+          }
+        }, 'image/jpeg', 0.95);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = () => {
+      reject(new Error(`Failed to load image at: ${url}`));
+    };
+    img.src = url;
+  });
+}
+
+
 function buildDemoResult() {
   return {
     key: 'hole',
@@ -653,17 +684,26 @@ async function processImage(imageDataURL, source) {
     if (imageDataURL.startsWith('data:')) {
       blob = dataURLtoBlob(imageDataURL);
     } else {
-      const response = await fetch(imageDataURL);
-      if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
-      blob = await response.blob();
+      try {
+        blob = await loadImageAsBlob(imageDataURL);
+      } catch (loadErr) {
+        console.warn('loadImageAsBlob failed, falling back to fetch:', loadErr);
+        const fetchImgResponse = await fetch(imageDataURL);
+        if (!fetchImgResponse.ok) throw new Error(`Failed to fetch image: ${fetchImgResponse.statusText}`);
+        blob = await fetchImgResponse.blob();
+      }
     }
 
     const formData = new FormData();
     formData.append('file', blob, 'capture.jpg');
 
-    const response = await fetch(`${API_BASE_URL}/predict`, {
+    const predictURL = `${API_BASE_URL}/predict`;
+    console.log('Attempting to fetch from:', predictURL);
+    
+    const response = await fetch(predictURL, {
       method: 'POST',
-      body: formData
+      body: formData,
+      mode: 'cors'
     });
 
     if (!response.ok) {

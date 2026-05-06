@@ -3,12 +3,12 @@
    sw.js — Offline-first caching strategy
    ═══════════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'fabricguard-v7';
+const CACHE_NAME = 'fabricguard-v11';
 const STATIC_ASSETS = [
   './',
-  './index.html',
-  './styles.css',
-  './app.js',
+  './index.html?v=11',
+  './styles.css?v=11',
+  './app.js?v=11',
 ];
 
 /* Install: pre-cache static shell */

@@ -32,19 +32,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI()
 
-# Enable CORS
+# Enable CORS - Must be added FIRST before other middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://fabric-dd-bbfrontend.onrender.com",
-        "http://127.0.0.1:5500",
-        "http://127.0.0.1:5501",
-        "http://localhost:5500",
-        "http://localhost:5501",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Uploads directory
@@ -245,7 +240,7 @@ async def predict(file: UploadFile = File(...)):
                 "reason_3": "N/A",
                 "machine": "N/A",
                 "suggestion": "Fabric is in good condition",
-                "image_url": f"https://fabric-dd-bb.onrender.com/uploads/{filename}"
+                "image_url": f"http://127.0.0.1:8000/uploads/{filename}"
             }
         
         # Process detections with bounding boxes
@@ -305,7 +300,7 @@ async def predict(file: UploadFile = File(...)):
             "reason_3": primary.get("reason_3"),
             "machine": primary.get("machine"),
             "suggestion": primary.get("suggestion"),
-            "image_url": f"https://fabric-dd-bb.onrender.com/uploads/{filename}"
+            "image_url": f"http://localhost:8000/uploads/{filename}"
         }
         
     except Exception as e:
