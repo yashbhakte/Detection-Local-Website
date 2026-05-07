@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: detection-local-website
+    runtime: python
+    pythonVersion: 3.9
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python -m uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.16
+    # Free tier (512MB) will cause memory issues
+    # RECOMMENDED: Upgrade to Standard ($7+/month) for stable performance
+    # plan: free  # Current plan
+    # To upgrade: plan: standard
+    # OR: Use smaller model like YOLOv8n instead of YOLOv8m
+
+  - type: static
+    name: detection-local-website-frontend
+    staticPublishPath: .
+    buildCommand: echo "Frontend ready"
+    routes:
+      - path: /
+        index: index.html

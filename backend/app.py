@@ -13,6 +13,7 @@ from PIL import Image
 import os
 import json
 import datetime
+import gc
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -122,7 +123,10 @@ def load_resources():
     print(f"Loading model from {MODEL_PATH}...")
     if os.path.exists(MODEL_PATH):
         model = YOLO(MODEL_PATH)
-        print("Model loaded successfully")
+        # Move to CPU and set to eval mode to save memory
+        model.to('cpu')
+        model.eval()
+        print("Model loaded successfully on CPU in eval mode")
     
     if os.path.exists(EXCEL_PATH):
         try:
@@ -223,12 +227,25 @@ async def predict(file: UploadFile = File(...), request: Request = None):
         with open(file_path, "wb") as f:
             f.write(contents)
         
-        # Resize image to save memory on Render's free tier (512MB limit)
-        image.thumbnail((416, 416))
+        # Aggressive memory optimization for Render free tier (512MB limit)
+        # Reduce resolution to absolute minimum while maintaining detection quality
+        max_size = 320  # Reduced from 416 to save memory (~50% less VRAM)
+        image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
-        # Run inference
-        results = model.predict(image, verbose=False, conf=0.25)
+        # Run inference with memory-efficient settings
+        results = model.predict(
+            image, 
+            verbose=False, 
+            conf=0.25,
+            device='cpu',  # Force CPU inference
+            imgsz=320,     # Match our resize size
+            half=False,    # No half precision
+            augment=False  # No augmentation
+        )
         result = results[0]
+        
+        # Force garbage collection after inference to free memory
+        gc.collect()
         
         # Check if any detections found
         if len(result.boxes) == 0:
@@ -299,7 +316,7 @@ async def predict(file: UploadFile = File(...), request: Request = None):
         base_url = str(request.base_url).rstrip('/') if request else 'http://localhost:8000'
         image_url = f"{base_url}/uploads/{filename}"
         
-        return {
+        response = {
             "status": status_val,
             "defect_key": primary["defect_key"],
             "defect_label": primary["defect_type"],
@@ -315,8 +332,18 @@ async def predict(file: UploadFile = File(...), request: Request = None):
             "image_url": image_url
         }
         
+        # Force cleanup
+        del results
+        del result
+        del detections
+        gc.collect()
+        
+        return response
+        
     except Exception as e:
         print(f"Prediction error: {e}")
+        # Ensure cleanup on error
+        gc.collect()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history")
