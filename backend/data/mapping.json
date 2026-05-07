@@ -1,0 +1,65 @@
+{
+  "stain": {
+    "reason_1": "75%: Oil leakage from bearings/cams.",
+    "reason_2": "20%: Dirt or sweat from manual handling.",
+    "reason_3": "5%: Rust marks from old machine parts.",
+    "suggestion": "Clean oil seals; enforce worker hand-hygiene protocols.",
+    "machine": "Any Machine (Spinning/Loom)"
+  },
+  "hole": {
+    "reason_1": "80%: Broken needle hook or sharp part.",
+    "reason_2": "15%: Weak yarn snapping under tension.",
+    "reason_3": "5%: Rough handling/snagging by worker.",
+    "suggestion": "Inspect needle bed; replace dull hooks; test yarn strength.",
+    "machine": "Knitting Machine / Power Loom"
+  },
+  "horizontal": {
+    "reason_1": "70%: Yarn feeder timing or tension error.",
+    "reason_2": "25%: Faulty Bobbin/Pirn tension.",
+    "reason_3": "5%: Variation in yarn thickness (Count).",
+    "suggestion": "Recalibrate feeder timing; check bobbin winding pressure.",
+    "machine": "Circular / Shuttle Loom"
+  },
+  "vertical": {
+    "reason_1": "75%: Misaligned or damaged needle.",
+    "reason_2": "20%: Sinker damage or warp thread missing.",
+    "reason_3": "5%: Static buildup in the yarn path.",
+    "suggestion": "Align needle frame; check sinkers for metal burrs or lint.",
+    "machine": "Warp Knitting / Weaving Loom"
+  },
+  "lines": {
+    "reason_1": "70%: Constant tension pulses/vibrations.",
+    "reason_2": "25%: Yarn slubs or irregular thickness.",
+    "reason_3": "5%: Rolling vibration in the machine frame.",
+    "suggestion": "Check machine mounting; stabilize tension rollers; check yarn.",
+    "machine": "Any High-Speed Machine"
+  },
+  "broken stitch": {
+    "reason_1": "85%: High thread tension or timing error.",
+    "reason_2": "10%: Machine running at \"Over-Speed.\"",
+    "reason_3": "5%: Blunt needle tip or low-quality thread.",
+    "suggestion": "Reset rotary hook timing; reduce RPM; adjust tensioner.",
+    "machine": "Sewing / Overlock Machine"
+  },
+  "needle mark": {
+    "reason_1": "80%: Bent or damaged needle/latch.",
+    "reason_2": "15%: Worn-out needle grooves.",
+    "reason_3": "5%: Incorrect needle size for fabric weight.",
+    "suggestion": "Replace needles immediately; check latch movement/grooves.",
+    "machine": "Circular Knitting Machine"
+  },
+  "pinched fabric": {
+    "reason_1": "75%: Uneven roller pressure.",
+    "reason_2": "20%: Presser foot too tight.",
+    "reason_3": "5%: Fabric fold during feeding process.",
+    "suggestion": "Recalibrate pneumatic roller pressure; adjust presser foot.",
+    "machine": "Inspection / Finishing Machine"
+  },
+  "defect free": {
+    "reason_1": "100%: Normal Production",
+    "reason_2": "0%: N/A",
+    "reason_3": "0%: N/A",
+    "suggestion": "Maintain standard preventive maintenance schedule.",
+    "machine": "Standard Operation"
+  }
+}

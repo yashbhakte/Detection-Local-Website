@@ -6,8 +6,6 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import uvicorn
-from ultralytics import YOLO
-import pandas as pd
 import io
 from PIL import Image
 import os
@@ -19,6 +17,17 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import List, Optional
 import shutil
+
+# Configure PyTorch memory saving BEFORE loading any models
+try:
+    import torch
+    torch.set_num_threads(1)
+    torch.set_grad_enabled(False)
+    print("PyTorch optimized: set threads to 1, global gradients disabled.")
+except Exception as e:
+    print(f"Failed to optimize PyTorch globally: {e}")
+
+from ultralytics import YOLO
 
 # Local imports
 from database import User, ScanHistory, init_db, get_db
@@ -36,7 +45,13 @@ app = FastAPI()
 # Enable CORS - Must be added FIRST before other middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://detection-local-website-frontend.onrender.com",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "http://localhost:8000",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -121,6 +136,15 @@ def normalize_defect_name(name):
 def load_resources():
     global model, mapping_data
     print(f"Loading model from {MODEL_PATH}...")
+    
+    # Apply PyTorch optimizations before loading model
+    try:
+        import torch
+        torch.set_num_threads(1)
+        torch.set_grad_enabled(False)
+    except Exception as e:
+        print(f"Failed to optimize PyTorch during load: {e}")
+
     if os.path.exists(MODEL_PATH):
         model = YOLO(MODEL_PATH)
         # Move to CPU and set to eval mode to save memory
@@ -128,8 +152,18 @@ def load_resources():
         model.eval()
         print("Model loaded successfully on CPU in eval mode")
     
-    if os.path.exists(EXCEL_PATH):
+    # Try loading JSON mapping first to save memory
+    JSON_PATH = os.path.join(BASE_DIR, "data", "mapping.json")
+    if os.path.exists(JSON_PATH):
         try:
+            with open(JSON_PATH, "r") as f:
+                mapping_data = json.load(f)
+            print("Mapping loaded successfully from mapping.json.")
+        except Exception as e:
+            print(f"Error loading JSON mapping: {e}")
+    elif os.path.exists(EXCEL_PATH):
+        try:
+            import pandas as pd
             df = pd.read_excel(EXCEL_PATH)
             for _, row in df.iterrows():
                 defect_name = normalize_defect_name(row['Defect Category'])
@@ -140,9 +174,12 @@ def load_resources():
                     "suggestion": str(row.get('Suggestion to reduce future defect', 'N/A')),
                     "machine": str(row.get('Machine Responsible', 'N/A'))
                 }
-            print("Mapping loaded successfully.")
+            print("Mapping loaded successfully from Excel fallback.")
         except Exception as e:
             print(f"Error loading Excel: {e}")
+    
+    # Force garbage collection to free memory
+    gc.collect()
 
 @app.on_event("startup")
 async def startup_event():
@@ -221,27 +258,31 @@ async def predict(file: UploadFile = File(...), request: Request = None):
         filename = f"{timestamp}_{safe_name}"
         file_path = os.path.join(UPLOADS_DIR, filename)
 
-        
-        # We need to seek back to start if we use the file object, 
-        # but since we already have 'contents', we'll just write it
+        # Write to file
         with open(file_path, "wb") as f:
             f.write(contents)
+        
+        # Free raw contents from memory immediately before running model to lower memory spike
+        del contents
+        gc.collect()
         
         # Aggressive memory optimization for Render free tier (512MB limit)
         # Reduce resolution to absolute minimum while maintaining detection quality
         max_size = 320  # Reduced from 416 to save memory (~50% less VRAM)
         image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
-        # Run inference with memory-efficient settings
-        results = model.predict(
-            image, 
-            verbose=False, 
-            conf=0.25,
-            device='cpu',  # Force CPU inference
-            imgsz=320,     # Match our resize size
-            half=False,    # No half precision
-            augment=False  # No augmentation
-        )
+        # Run inference with memory-efficient settings under torch.no_grad
+        import torch
+        with torch.no_grad():
+            results = model.predict(
+                image, 
+                verbose=False, 
+                conf=0.25,
+                device='cpu',  # Force CPU inference
+                imgsz=320,     # Match our resize size
+                half=False,    # No half precision
+                augment=False  # No augmentation
+            )
         result = results[0]
         
         # Force garbage collection after inference to free memory

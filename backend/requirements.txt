@@ -1,11 +1,8 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
 ultralytics
 torch
-opencv-python-headless
-pillow
-pandas
-openpyxl
 python-multipart
 sqlalchemy
 python-jose
