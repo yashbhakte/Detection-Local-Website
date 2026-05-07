@@ -1,6 +1,6 @@
 from fileinput import filename
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, status
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
@@ -33,12 +33,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 app = FastAPI()
 
 # Enable CORS - Must be added FIRST before other middleware
-# For production, you can also add your specific frontend URL:
-# allow_origins=["https://detection-local-website-frontend.onrender.com"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,  # Must be False when allow_origins=["*"]
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
@@ -151,6 +149,11 @@ async def startup_event():
 async def root():
     return {"status": "online", "model_loaded": model is not None}
 
+@app.get("/ping")
+async def ping():
+    """Keep-alive endpoint to prevent Render free tier spin-down"""
+    return {"status": "pong"}
+
 # --- Auth Endpoints ---
 
 @app.post("/signup")
@@ -198,7 +201,7 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 # --- Prediction & History Endpoints ---
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
+async def predict(file: UploadFile = File(...), request: Request = None):
 
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -230,6 +233,10 @@ async def predict(file: UploadFile = File(...)):
         # Check if any detections found
         if len(result.boxes) == 0:
             # No defect detected
+            # Build image URL based on request host
+            base_url = str(request.base_url).rstrip('/') if request else 'http://localhost:8000'
+            image_url = f"{base_url}/uploads/{filename}"
+            
             return {
                 "status": "ok",
                 "defect_key": "defect free",
@@ -242,7 +249,7 @@ async def predict(file: UploadFile = File(...)):
                 "reason_3": "N/A",
                 "machine": "N/A",
                 "suggestion": "Fabric is in good condition",
-                "image_url": f"http://127.0.0.1:8000/uploads/{filename}"
+                "image_url": image_url
             }
         
         # Process detections with bounding boxes
@@ -287,7 +294,10 @@ async def predict(file: UploadFile = File(...)):
         primary = detections[0]
         status_val = "defect"
         severity = "High" if primary["confidence"] > 75 else "Medium" if primary["confidence"] > 50 else "Low"
-    
+        
+        # Build image URL based on request host
+        base_url = str(request.base_url).rstrip('/') if request else 'http://localhost:8000'
+        image_url = f"{base_url}/uploads/{filename}"
         
         return {
             "status": status_val,
@@ -302,7 +312,7 @@ async def predict(file: UploadFile = File(...)):
             "reason_3": primary.get("reason_3"),
             "machine": primary.get("machine"),
             "suggestion": primary.get("suggestion"),
-            "image_url": f"http://localhost:8000/uploads/{filename}"
+            "image_url": image_url
         }
         
     except Exception as e:

@@ -1142,6 +1142,36 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   KEEP-ALIVE (Render Free Tier Prevention)
+   ═══════════════════════════════════════════════════════════════ */
+function initKeepAlive() {
+  /**
+   * Pings backend every 10 minutes to prevent Render free tier spin-down
+   * Render spins down services after 15 minutes of inactivity
+   */
+  const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+  
+  async function ping() {
+    try {
+      const pingURL = `${API_BASE_URL}/ping`;
+      await fetch(pingURL, { method: 'GET', mode: 'cors' }).catch(() => {
+        // Silently fail - keep-alive is optional
+      });
+    } catch (err) {
+      // Silently fail - keep-alive is optional
+    }
+  }
+  
+  // Ping immediately on load
+  ping();
+  
+  // Then ping every 10 minutes
+  setInterval(ping, PING_INTERVAL);
+  
+  console.log('Keep-alive initialized - backend will be pinged every 10 minutes');
+}
+
+/* ═══════════════════════════════════════════════════════════════
    INIT
    ═══════════════════════════════════════════════════════════════ */
 function init() {
@@ -1154,6 +1184,7 @@ function init() {
   initClearButton();
   initLogsListeners();
   initDemoButton();
+  initKeepAlive(); // Start keep-alive pings for Render free tier
 
   // Load demo data
   loadDemoLogs();
