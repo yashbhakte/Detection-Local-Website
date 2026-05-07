@@ -33,10 +33,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 app = FastAPI()
 
 # Enable CORS - Must be added FIRST before other middleware
+# For production, you can also add your specific frontend URL:
+# allow_origins=["https://detection-local-website-frontend.onrender.com"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
